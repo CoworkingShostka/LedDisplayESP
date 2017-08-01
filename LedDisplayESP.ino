@@ -2,38 +2,29 @@
 #include <ELClientCmd.h>
 #include <ELClientMqtt.h>
 
-#define DMDLib 0
-
 #include <SPI.h> //SPI.h must be included as DMD is written by SPI (the IDE complains otherwise)
+#include <DMD.h>        //
 
-static uint32_t last;
-
-#if DMDLib == 1
-
-  #include <DMD.h>        //
- // #include <TimerOne.h>   //
+ 
   //Fire up the DMD library as dmd
-  #define DISPLAYS_ACROSS 3
-  #define DISPLAYS_DOWN 1
-  DMD dmd(DISPLAYS_ACROSS, DISPLAYS_DOWN);
+#define DISPLAYS_ACROSS 3
+#define DISPLAYS_DOWN 1
+DMD dmd(DISPLAYS_ACROSS, DISPLAYS_DOWN);
   /*--------------------------------------------------------------------------------------
     Interrupt handler for Timer1 (TimerOne) driven DMD refresh scanning, this gets
     called at the period set in Timer1.initialize();
   --------------------------------------------------------------------------------------*/
-  void ScanDMD()
+void ScanDMD()
   { 
     dmd.scanDisplayBySPI();
   }
 
-#elif DMDlib == 2
-
-  #include <DMD2.h>
-  ///LED Panel Init block
-  SoftDMD dmd(3,1);  // DMD2 controls the entire display
-
-#endif
-
 #include "RusSystemFont5x7.h"
+#include "RusArial14.h"
+
+static uint32_t last;
+long timer;
+bool flagM = false;
 
 ///
 ///esp-link init block
@@ -70,8 +61,9 @@ bool connected;
 // Callback when MQTT is connected
 void mqttConnected(void* response) {
   Serial.println("MQTT connected!");
-  mqtt.subscribe("AS/FirstDoor/server_response");
-  mqtt.subscribe("AS/FirstDoor/server_data");
+  //mqtt.subscribe("AS/FirstDoor/server_response");
+ // mqtt.subscribe("AS/FirstDoor/server_data");
+  mqtt.subscribe("/ipanel/command");
   
   connected = true;
 }
@@ -91,23 +83,14 @@ void mqttData(void* response) {
   Serial.println(topic);
 
   Serial.print("data=");
-  String data = res->popString();
+
+  char data[res->argLen()+1];
+  res->popChar(data);
+  
+  //String data = res->popString();
   Serial.println(data);
 
-  #if DMDLib == 1
-    dmd.clearScreen( true );
-    ScanDMD();
-    
-    char MSG1[16];
-    data.toCharArray(MSG1, data.length()+1);
-    
-    dmd.drawString(0,0,MSG1,strlen(MSG1), GRAPHICS_NORMAL);
-
-  #elif DMDLib == 2
-    dmd.begin();
-    dmd.drawString(0,0,data);
-
-  #endif
+  modeSwitch(data);
     
 }
 
@@ -140,53 +123,156 @@ void setup() {
   Serial.println("EL-MQTT ready");
 
   //LED panel setup
-  #if DMDLib == 1
-//    initialize TimerOne's interrupt/CPU usage used to scan and refresh the display
-      //Timer1.initialize( 5000 );           //period in microseconds to call ScanDMD. Anything longer than 5000 (5ms) and you can see flicker.
-     // Timer1.attachInterrupt( ScanDMD );   //attach the Timer1 interrupt to ScanDMD which goes to dmd.scanDisplayBySPI()
-
-      //clear/init the DMD pixels held in RAM
-      dmd.clearScreen( true );   //true is normal (all pixels off), false is negative (all pixels on)
-      dmd.selectFont(SystemFont5x7);
+  //clear/init the DMD pixels held in RAM
+  dmd.clearScreen( true );   //true is normal (all pixels off), false is negative (all pixels on)
+//      dmd.selectFont(SystemFont5x7);
       
-  #elif DMDLib == 2
-    dmd.setBrightness(255);
-    dmd.selectFont(SystemFont5x7);
-    dmd.begin();
-    
-  #endif
+
    
 }
 
 void loop() {
   esp.Process();
 
-  #if DMDLib == 1
+
     if((millis()- last) > 3)
     {
       ScanDMD();
     }
-  #endif
+
+    if(flagM && ((timer + 30) < millis()))
+    {
+      dmd.stepMarquee(-1,0);
+      
+      timer = millis();
+    }
 }
 
-//void serialEvent()
-//{
-//    #if DMDLib == 1
-//    dmd.clearScreen(true);
-//  
-//  #elif DMDLib == 2
-//    dmd.end();
-//  #endif
+void modeSwitch(char* str)
+{
+  char * pch;
+  pch = strtok(str, "#");
+
+  //Serial.println(pch);  //debug
+//  while (pch!= NULL)
+//      {
+//        Serial.println(pch);
+//        pch = strtok(NULL, "#");
+//      }
+     
+  int mode = atoi(pch);
+ 
+  switch (mode)
+  {
+    case 1:
+    {
+      dmd.selectFont(Arial_14);
+      dmd.clearScreen( true );
+      
+      pch = strtok(NULL, "#");
+      //Serial.println(pch);  //debug
+      dmd.drawString(0,0,pch,strlen(pch), GRAPHICS_NORMAL);
+
+      flagM = false;
+      
+      break;
+    }
+    case 2:
+    {
+      dmd.selectFont(SystemFont5x7);
+      dmd.clearScreen( true );
+
+      
+      pch = strtok(NULL, "#");
+      //Serial.println(pch);  //debug
+      dmd.drawString(0,0,pch,strlen(pch), GRAPHICS_NORMAL);
+
+      pch = strtok(NULL, "#");
+      //Serial.println(pch);  //debug
+      dmd.drawString(0,8,pch,strlen(pch), GRAPHICS_NORMAL);
+
+      flagM = false;
+      
+      break;
+    }
+    case 3:
+    {
+      dmd.selectFont(Arial_14);
+      dmd.clearScreen( true );
+
+      pch = strtok(NULL, "#");
+      dmd.drawMarquee(pch, strlen(pch), 0, 0);
+
+      timer = millis();
+      flagM = true;
+
+      break;
+    }
+  }
   
+//  String str1 = getValue(str, '#', 1);
+//  
+//  char MSG1[16];
+//  str1.toCharArray(MSG1, str1.length()+1);
+//  
+//  switch (mode){
+//    case 1:
+//    {
+//      dmd.selectFont(Arial_14);
+//      dmd.clearScreen( true );
+//      
+//      dmd.drawString(2,2,MSG1,strlen(MSG1), GRAPHICS_NORMAL);
+//      
+//      break;
+//    }
+//    case 2:
+//    {    
+//      dmd.selectFont(SystemFont5x7);
+//      dmd.clearScreen( true );
+//
+//      String str2 = getValue(str, '#', 2);
+//      char MSG2[16];
+//      str2.toCharArray(MSG2, str2.length()+1);
+//      
+//      dmd.drawString(0,0,MSG1,strlen(MSG1), GRAPHICS_NORMAL);
+//      dmd.drawString(0,8,MSG2,strlen(MSG2), GRAPHICS_NORMAL);
+//
+//      Serial.println(str1);
+//      Serial.println(MSG1);
+//            
+//      break;
+//    }
+//    case 3:
+//    {
+//      dmd.selectFont(Arial_14);
+//      dmd.clearScreen( true );
+//
+//      dmd.drawMarquee(MSG1, strlen(MSG1), 0, 0);
+//
+//      break;
+//    }
+//  }
+
+return 0; 
+}
+
+//split string fnctn
+//String getValue(char data, char separator, int index)
+//{
+//    int found = 0;
+//    int strIndex[] = {0, -1};
+//    int maxIndex = sizeof(data) - 1;
+//
+//    for (int i = 0; i <= maxIndex && found <= index; i++)
+//    {
+//        if (data[i] == separator || i == maxIndex)
+//        {
+//            found++;
+//            strIndex[0] = strIndex[1] + 1;
+//            strIndex[1] = (i == maxIndex) ? i + 1 : i;
+//        }
+//    }
+//
+//    return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 //}
 
-//ISR(USART_RXC_vect)
-//{
-//  // Code to be executed when the USART receives a byte here
-//  #if DMDLib == 1
-//    dmd.clearScreen(true);
-//  
-//  #elif DMDLib == 2
-//    dmd.end();
-//  #endif
-//}
