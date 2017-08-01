@@ -5,7 +5,7 @@
 #include <SPI.h> //SPI.h must be included as DMD is written by SPI (the IDE complains otherwise)
 #include <DMD.h>        //
 
- 
+ #define Test 0
   //Fire up the DMD library as dmd
 #define DISPLAYS_ACROSS 3
 #define DISPLAYS_DOWN 1
@@ -21,6 +21,7 @@ void ScanDMD()
 
 #include "RusSystemFont5x7.h"
 #include "RusArial14.h"
+#include "Arial_black_16.h"
 
 static uint32_t last;
 long timer;
@@ -127,7 +128,12 @@ void setup() {
   dmd.clearScreen( true );   //true is normal (all pixels off), false is negative (all pixels on)
 //      dmd.selectFont(SystemFont5x7);
       
+  #if Test == 1
+byte testB[] = {0x00, 0x08, 0xC0, 0x60, 0x30, 0x18, 0x00, 0x00, 0x01, 0x03, 0x06, 0x04, 0x0C, 0x18};
 
+
+  
+  #endif
    
 }
 
@@ -166,7 +172,7 @@ void modeSwitch(char* str)
   {
     case 1:
     {
-      dmd.selectFont(Arial_14);
+      dmd.selectFont(Arial_Black_16);
       dmd.clearScreen( true );
       
       pch = strtok(NULL, "#");
