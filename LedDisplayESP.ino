@@ -5,7 +5,6 @@
 #include <SPI.h> //SPI.h must be included as DMD is written by SPI (the IDE complains otherwise)
 #include <DMD.h>        //
 
- #define Test 0
   //Fire up the DMD library as dmd
 #define DISPLAYS_ACROSS 3
 #define DISPLAYS_DOWN 1
@@ -128,12 +127,6 @@ void setup() {
   dmd.clearScreen( true );   //true is normal (all pixels off), false is negative (all pixels on)
 //      dmd.selectFont(SystemFont5x7);
       
-  #if Test == 1
-byte testB[] = {0x00, 0x08, 0xC0, 0x60, 0x30, 0x18, 0x00, 0x00, 0x01, 0x03, 0x06, 0x04, 0x0C, 0x18};
-
-
-  
-  #endif
    
 }
 
@@ -148,6 +141,7 @@ void loop() {
 
     if(flagM && ((timer + 30) < millis()))
     {
+      
       dmd.stepMarquee(-1,0);
       
       timer = millis();
@@ -172,7 +166,7 @@ void modeSwitch(char* str)
   {
     case 1:
     {
-      dmd.selectFont(Arial_Black_16);
+      dmd.selectFont(Arial_14);
       dmd.clearScreen( true );
       
       pch = strtok(NULL, "#");
@@ -214,71 +208,38 @@ void modeSwitch(char* str)
 
       break;
     }
+    case 4:
+    {
+      dmd.clearScreen( true );
+      
+      pch = strtok(NULL, "#\n");
+      
+      printImg(pch);
+      flagM = false;
+      
+      break;
+    }
   }
-  
-//  String str1 = getValue(str, '#', 1);
-//  
-//  char MSG1[16];
-//  str1.toCharArray(MSG1, str1.length()+1);
-//  
-//  switch (mode){
-//    case 1:
-//    {
-//      dmd.selectFont(Arial_14);
-//      dmd.clearScreen( true );
-//      
-//      dmd.drawString(2,2,MSG1,strlen(MSG1), GRAPHICS_NORMAL);
-//      
-//      break;
-//    }
-//    case 2:
-//    {    
-//      dmd.selectFont(SystemFont5x7);
-//      dmd.clearScreen( true );
-//
-//      String str2 = getValue(str, '#', 2);
-//      char MSG2[16];
-//      str2.toCharArray(MSG2, str2.length()+1);
-//      
-//      dmd.drawString(0,0,MSG1,strlen(MSG1), GRAPHICS_NORMAL);
-//      dmd.drawString(0,8,MSG2,strlen(MSG2), GRAPHICS_NORMAL);
-//
-//      Serial.println(str1);
-//      Serial.println(MSG1);
-//            
-//      break;
-//    }
-//    case 3:
-//    {
-//      dmd.selectFont(Arial_14);
-//      dmd.clearScreen( true );
-//
-//      dmd.drawMarquee(MSG1, strlen(MSG1), 0, 0);
-//
-//      break;
-//    }
-//  }
 
 return 0; 
 }
 
-//split string fnctn
-//String getValue(char data, char separator, int index)
-//{
-//    int found = 0;
-//    int strIndex[] = {0, -1};
-//    int maxIndex = sizeof(data) - 1;
-//
-//    for (int i = 0; i <= maxIndex && found <= index; i++)
-//    {
-//        if (data[i] == separator || i == maxIndex)
-//        {
-//            found++;
-//            strIndex[0] = strIndex[1] + 1;
-//            strIndex[1] = (i == maxIndex) ? i + 1 : i;
-//        }
-//    }
-//
-//    return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
-//}
-
+void printImg(char* buf)
+{
+//  Serial.println(buf);  //debug
+//  Serial.println(strlen(buf));  //debug
+  int i = 0;
+  int len = strlen(buf); 
+  
+  for (byte y = 0; y < DMD_PIXELS_DOWN; y++) {
+    for (byte x = 0; x < DMD_PIXELS_ACROSS*DISPLAYS_ACROSS; x++) {
+      if (buf[i] == '1' && i <= len) {
+//        Serial.print("i");  //debug
+//        Serial.println(i);  //debug
+        dmd.writePixel(x, y, GRAPHICS_NORMAL, true);
+        
+      }
+      i++;
+    }
+  }
+}
